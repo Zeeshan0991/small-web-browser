@@ -3,6 +3,9 @@ import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { PeopleModule } from './people/people.module';
+import { SitesModule } from './sites/sites.module';
+import { VisitsModule } from './visits/visits.module';
 
 @Module({
   imports: [
@@ -10,6 +13,9 @@ import { AppService } from './app.service';
     MongooseModule.forRoot(
       process.env.MONGO_URI ?? 'mongodb://localhost:27017/smallweb',
     ),
+    PeopleModule,
+    SitesModule,
+    VisitsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
