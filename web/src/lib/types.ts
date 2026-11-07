@@ -25,3 +25,24 @@ export interface SearchResult {
   revisionId: string;
   score: number;
 }
+
+export interface HistoryItem {
+  id: string;
+  address: string;
+  found: boolean;
+  via: Via;
+  at: string;
+  revisionId: string | null;
+  title: string | null;
+}
+
+export interface HistoryPage {
+  items: HistoryItem[];
+  nextCursor: string | null;
+}
+
+export interface PublishResult {
+  address: string;
+  revisionId: string;
+  created: boolean;
+}

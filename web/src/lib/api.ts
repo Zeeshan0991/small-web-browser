@@ -1,4 +1,4 @@
-import type { Page, Person, Via } from './types';
+import type { HistoryPage, Page, Person, PublishResult, SearchResult, Via } from './types';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
@@ -31,4 +31,16 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ personId, address, via }),
     }),
+
+  history: (personId: string, before?: string) =>
+    request<HistoryPage>(
+      `/history?personId=${personId}&limit=30` +
+        (before ? `&before=${encodeURIComponent(before)}` : ''),
+    ),
+
+  search: (q: string) =>
+    request<{ query: string; results: SearchResult[] }>(`/search?q=${encodeURIComponent(q)}`),
+
+  publish: (body: { authorId: string; address: string; title: string; html: string }) =>
+    request<PublishResult>('/sites', { method: 'POST', body: JSON.stringify(body) }),
 };
