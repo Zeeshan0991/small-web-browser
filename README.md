@@ -1,8 +1,3 @@
-.3 The README (commands only)
-
-The brief says “No write-up, just the commands.” Replace README.md:
-
-markdown
 # Small Web
 
 Requires Node 20+, Docker.
