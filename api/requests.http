@@ -1,0 +1,63 @@
+@api = http://localhost:4000
+# Run GET /people first, then paste any id here:
+@personId = fa8301e435fbdf550254dd23
+
+### 1. People
+GET {{api}}/people
+
+### 2. A page that exists
+GET {{api}}/resolve?address=tidepool.zz
+
+### 3. Messy capitalization still finds it
+GET {{api}}/resolve?address=%20TidePool.ZZ%20
+
+### 4. An address that leads nowhere (still a normal 200 response)
+GET {{api}}/resolve?address=kelp-forest.zz
+
+### 5. Record a visit
+POST {{api}}/visits
+Content-Type: application/json
+
+{ "personId": "{{personId}}", "address": "tidepool.zz", "via": "typed" }
+
+### 6. Record a visit to nowhere
+POST {{api}}/visits
+Content-Type: application/json
+
+{ "personId": "{{personId}}", "address": "kelp-forest.zz", "via": "link" }
+
+### 7. History, 5 at a time
+GET {{api}}/history?personId={{personId}}&limit=5
+
+### 8. Search
+GET {{api}}/search?q=steam
+
+### 9. Publish a new site
+POST {{api}}/sites
+Content-Type: application/json
+
+{ "authorId": "{{personId}}", "address": "mytest.zz", "title": "My Test", "html": "<h1>Hello</h1><p>My first page about <a href=\"tidepool.zz\">tides</a>.</p>" }
+
+### 10. Publish the same address again as the same person (adds a revision)
+POST {{api}}/sites
+Content-Type: application/json
+
+{ "authorId": "{{personId}}", "address": "mytest.zz", "title": "My Test v2", "html": "<p>Second version.</p>" }
+
+### 11. Attack attempt: scripts, handlers, javascript links, images
+POST {{api}}/sites
+Content-Type: application/json
+
+{ "authorId": "{{personId}}", "address": "evil.zz", "title": "Evil", "html": "<h1>Hi</h1><script>alert(1)</script><img src=x onerror=alert(1)><a href=\"javascript:alert(1)\">click</a><iframe src=\"http://evil.com\"></iframe>" }
+
+### 12. Read the attack page back
+GET {{api}}/resolve?address=evil.zz
+
+### 13. Bad address
+POST {{api}}/sites
+Content-Type: application/json
+
+{ "authorId": "{{personId}}", "address": "not an address", "title": "x", "html": "<p>x</p>" }
+
+###
+GET {{api}}/history?personId={{personId}}&limit=5&before=2026-11-05T09:33:00.000Z
