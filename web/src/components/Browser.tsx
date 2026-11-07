@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
@@ -9,7 +8,9 @@ import {
   canForward,
   currentEntry,
   initialNav,
+  isNavState,
   navReducer,
+  withCurrentScroll,
   type Entry,
 } from '@/lib/nav';
 import type { Person, Via } from '@/lib/types';
@@ -24,6 +25,8 @@ import SearchResults from './SearchResults';
 import Toolbar from './Toolbar';
 
 type Panel = 'none' | 'history' | 'publish';
+
+const STORAGE_KEY = 'smallweb:session:v1';
 
 // A search results page has no address, so the address bar is empty on it.
 const addressOf = (e: Entry): string =>
@@ -42,6 +45,7 @@ export default function Browser() {
 
   const [panel, setPanel] = useState<Panel>('none');
   const [visitTick, setVisitTick] = useState(0);
+  const [hydrated, setHydrated] = useState(false);
 
   const ticket = useRef(0);
   const scrollY = useRef(0);
@@ -56,9 +60,9 @@ export default function Browser() {
   const addressText = addressDraft ?? entryAddress;
   const searchText = searchDraft ?? entryQuery;
 
-  const personName =
-    people.find((p) => p.id === personId)?.name ?? '';
+  const personName = people.find((p) => p.id === personId)?.name ?? '';
 
+  // Load the available people.
   useEffect(() => {
     api
       .people()
@@ -67,6 +71,72 @@ export default function Browser() {
         setError('Cannot reach the API. Is it running on port 4000?'),
       );
   }, []);
+
+  // Restore this tab's person and navigation trail after the initial mount.
+  // queueMicrotask avoids synchronous state updates inside the effect body.
+  useEffect(() => {
+    let cancelled = false;
+
+    queueMicrotask(() => {
+      if (cancelled) return;
+
+      try {
+        const raw = sessionStorage.getItem(STORAGE_KEY);
+
+        if (raw) {
+          const saved = JSON.parse(raw);
+
+          if (
+            typeof saved?.personId === 'string' &&
+            isNavState(saved.nav)
+          ) {
+            setPersonId(saved.personId);
+            dispatch({ type: 'restore', state: saved.nav });
+          }
+        }
+      } catch {
+        // Unreadable data: start clean.
+      }
+
+      if (!cancelled) {
+        setHydrated(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Save whenever the trail or person changes.
+  const save = useCallback(() => {
+    if (!hydrated) return;
+
+    try {
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          personId,
+          nav: withCurrentScroll(nav, scrollY.current),
+        }),
+      );
+    } catch {
+      // Storage full or blocked: carry on without saving.
+    }
+  }, [hydrated, personId, nav]);
+
+  useEffect(() => {
+    save();
+  }, [save]);
+
+  // Save once more when the tab is being hidden or closed.
+  useEffect(() => {
+    window.addEventListener('pagehide', save);
+
+    return () => {
+      window.removeEventListener('pagehide', save);
+    };
+  }, [save]);
 
   // Entries without an iframe never report scrolling; don't carry a stale number.
   useEffect(() => {
@@ -214,7 +284,8 @@ export default function Browser() {
             onClick={() => go('front-page.zz', 'typed')}
           >
             front-page.zz
-          </button>.
+          </button>
+          .
         </p>
       </div>
     );

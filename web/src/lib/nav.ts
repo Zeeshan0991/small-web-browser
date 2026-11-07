@@ -8,6 +8,7 @@ export interface PageEntry {
   page: Page;
   scrollY: number;
 }
+
 export interface SearchEntry {
   id: number;
   kind: 'search';
@@ -15,6 +16,7 @@ export interface SearchEntry {
   results: SearchResult[];
   scrollY: number;
 }
+
 export type Entry = PageEntry | SearchEntry;
 
 // What callers hand us: no id, no scroll (we assign those).
@@ -34,6 +36,7 @@ export type NavAction =
   | { type: 'navigate'; entry: NewEntry; leavingScrollY: number }
   | { type: 'back'; leavingScrollY: number }
   | { type: 'forward'; leavingScrollY: number }
+  | { type: 'restore'; state: NavState }
   | { type: 'reset' };
 
 function withScroll(entries: Entry[], index: number, y: number): Entry[] {
@@ -57,21 +60,20 @@ export function navReducer(state: NavState, action: NavAction): NavState {
       const entry = { ...action.entry, id: state.nextId, scrollY: 0 } as Entry;
 
       // 2. Asking again for the page you are already on is a reload:
-      //    replace it in place and keep Forward, like a real browser.
+      // replace it in place and keep Forward, like a real browser.
       if (sameAddress(saved[state.index], action.entry)) {
         const entries = saved.slice();
         entries[state.index] = entry;
         return { entries, index: state.index, nextId: state.nextId + 1 };
       }
 
-      // 3. Anything else: everything ahead of us is thrown away ("forward
-      //    can be lost"), then the new entry is added.
+      // 3. Anything ahead of us is thrown away.
       const entries = [...saved.slice(0, state.index + 1), entry];
       return { entries, index: entries.length - 1, nextId: state.nextId + 1 };
     }
 
     case 'back': {
-      if (state.index <= 0) return state; // nothing behind us
+      if (state.index <= 0) return state;
       return {
         ...state,
         entries: withScroll(state.entries, state.index, action.leavingScrollY),
@@ -80,7 +82,7 @@ export function navReducer(state: NavState, action: NavAction): NavState {
     }
 
     case 'forward': {
-      if (state.index >= state.entries.length - 1) return state; // nothing ahead
+      if (state.index >= state.entries.length - 1) return state;
       return {
         ...state,
         entries: withScroll(state.entries, state.index, action.leavingScrollY),
@@ -88,11 +90,47 @@ export function navReducer(state: NavState, action: NavAction): NavState {
       };
     }
 
+    case 'restore':
+      return action.state;
+
     case 'reset':
       return initialNav;
   }
 }
 
-export const currentEntry = (s: NavState): Entry | null => s.entries[s.index] ?? null;
+export const currentEntry = (s: NavState): Entry | null =>
+  s.entries[s.index] ?? null;
+
 export const canBack = (s: NavState): boolean => s.index > 0;
-export const canForward = (s: NavState): boolean => s.index < s.entries.length - 1;
+
+export const canForward = (s: NavState): boolean =>
+  s.index < s.entries.length - 1;
+
+/** Apply the live scroll position to the current entry (used when saving). */
+export function withCurrentScroll(state: NavState, y: number): NavState {
+  return {
+    ...state,
+    entries: withScroll(state.entries, state.index, y),
+  };
+}
+
+/** Check saved data before trusting it. Anything odd is ignored, never crashed on. */
+export function isNavState(x: unknown): x is NavState {
+  const s = x as NavState;
+
+  return (
+    !!s &&
+    Array.isArray(s.entries) &&
+    typeof s.index === 'number' &&
+    typeof s.nextId === 'number' &&
+    s.index >= -1 &&
+    s.index < s.entries.length &&
+    s.entries.every(
+      (e) =>
+        !!e &&
+        typeof e.id === 'number' &&
+        typeof e.scrollY === 'number' &&
+        (e.kind === 'page' || e.kind === 'search'),
+    )
+  );
+}
